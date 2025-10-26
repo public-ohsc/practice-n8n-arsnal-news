@@ -1,0 +1,139 @@
+{
+  "name": "BBC Football RSS → 아스날 뉴스 카카오톡 알림",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 12 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "매일 오후 12시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://feeds.bbci.co.uk/sport/football/rss.xml",
+        "options": {}
+      },
+      "id": "bbc-rss",
+      "name": "BBC Football RSS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// BBC Sport Football RSS에서 아스날 뉴스 추출\nconst xml = $input.first().json.data;\n\nconsole.log('=== BBC Sport Football RSS 파싱 시작 ===');\n\n// 아스날 관련 키워드들\nconst arsenalKeywords = [\n  'Arsenal', 'Gunners', 'Arteta', 'Odegaard', 'Saka', \n  'Martinelli', 'Rice', 'Saliba', 'Gabriel', 'Zinchenko',\n  'Havertz', 'Jesus', 'Emirates', 'North London'\n];\n\nconst newsItems = [];\n\n// 단순한 방식으로 item 태그들을 분리\nconst itemMatches = xml.match(/<item>[\\s\\S]*?<\\/item>/g);\nconsole.log('발견된 item 개수:', itemMatches ? itemMatches.length : 0);\n\nif (itemMatches) {\n  for (const item of itemMatches) {\n    // title 추출 (CDATA 형식)\n    const titleMatch = item.match(/<title><!\\[CDATA\\[([^\\]]*)\\]\\]><\\/title>/);\n    const title = titleMatch ? titleMatch[1].trim() : '';\n    \n    // link 추출 - 여러 패턴 시도\n    let link = '';\n    \n    // 패턴 1: CDATA 형식\n    const linkMatch1 = item.match(/<link><!\\[CDATA\\[([^\\]]*)\\]\\]><\\/link>/);\n    if (linkMatch1) {\n      link = linkMatch1[1].trim();\n    } else {\n      // 패턴 2: 일반 형식\n      const linkMatch2 = item.match(/<link>([^<]*)<\\/link>/);\n      if (linkMatch2) {\n        link = linkMatch2[1].trim();\n      }\n    }\n    \n    // 패턴 3: guid에서 추출 (BBC는 guid에 링크가 있음)\n    if (!link) {\n      const guidMatch = item.match(/<guid[^>]*>([^<]*)<\\/guid>/);\n      if (guidMatch) {\n        link = guidMatch[1].trim();\n      }\n    }\n    \n    // description 추출 (CDATA 형식)\n    const descMatch = item.match(/<description><!\\[CDATA\\[([^\\]]*)\\]\\]><\\/description>/);\n    const description = descMatch ? descMatch[1].trim() : '';\n    \n    console.log('--- 뉴스 아이템 분석 ---');\n    console.log('제목:', title);\n    console.log('링크:', link);\n    console.log('설명:', description.substring(0, 100));\n    \n    // 아스날 관련 뉴스 판단\n    let isArsenalNews = false;\n    let reason = '';\n    \n    // 1. 제목에 아스날 키워드가 있는 경우\n    const titleHasArsenal = arsenalKeywords.some(keyword => \n      title.toLowerCase().includes(keyword.toLowerCase())\n    );\n    \n    if (titleHasArsenal) {\n      isArsenalNews = true;\n      reason = '제목에 아스날 키워드 포함';\n    }\n    \n    // 2. 설명에 아스날 키워드가 있는 경우\n    const descHasArsenal = arsenalKeywords.some(keyword => \n      description.toLowerCase().includes(keyword.toLowerCase())\n    );\n    \n    if (descHasArsenal) {\n      isArsenalNews = true;\n      reason = reason ? reason + ', 설명에 아스날 키워드 포함' : '설명에 아스날 키워드 포함';\n    }\n    \n    console.log('아스날 관련 여부:', isArsenalNews, '- 이유:', reason);\n    \n    if (isArsenalNews) {\n      newsItems.push({\n        title: title,\n        link: link || 'http://feeds.bbci.co.uk/sport/football/rss.xml',\n        timestamp: new Date().toISOString(),\n        team: 'Arsenal',\n        description: description\n      });\n      console.log('✅ 추가된 아스날 뉴스:', title, '- 링크:', link);\n    }\n  }\n}\n\nconsole.log('총 발견된 아스날 뉴스 개수:', newsItems.length);\n\nif (newsItems.length === 0) {\n  console.log('BBC Football RSS에서 아스날 뉴스를 찾을 수 없습니다.');\n  return [{\n    title: '📰 아스날 관련 뉴스가 없습니다',\n    link: 'http://feeds.bbci.co.uk/sport/football/rss.xml',\n    timestamp: new Date().toISOString(),\n    team: 'Arsenal',\n    isNoNews: true\n  }];\n}\n\nreturn newsItems;"
+      },
+      "id": "arsenal-parser",
+      "name": "아스날 뉴스 파싱",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// BBC 뉴스를 카카오톡 메시지로 변환\nconst items = $input.all();\nconst messages = [];\n\nfor (const item of items) {\n  let messageText;\n  \n  // 뉴스가 없는 경우와 있는 경우를 구분\n  if (item.json.isNoNews) {\n    messageText = `⚽ 아스날 뉴스 모니터링\\n\\n📰 ${item.json.title}\\n\\n🔗 BBC Football 뉴스 전체보기: ${item.json.link}\\n\\n⏰ ${new Date().toLocaleString('ko-KR')}`;\n  } else {\n    messageText = `⚽ 아스날 뉴스 알림 (BBC)\\n\\n📌 ${item.json.title}\\n\\n🔗 링크: ${item.json.link}\\n\\n⏰ ${new Date().toLocaleString('ko-KR')}`;\n  }\n  \n  const message = {\n    object_type: \"text\",\n    text: messageText,\n    link: {\n      web_url: item.json.link\n    }\n  };\n  \n  messages.push({\n    template_object: JSON.stringify(message)\n  });\n}\n\nconsole.log('BBC 메시지 개수:', messages.length);\nreturn messages;"
+      },
+      "id": "message-formatter",
+      "name": "메시지 포맷팅",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.KAKAO_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "template_object",
+              "value": "={{ $json.template_object }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "kakao-send",
+      "name": "카카오톡 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "매일 오후 12시": {
+      "main": [
+        [
+          {
+            "node": "BBC Football RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BBC Football RSS": {
+      "main": [
+        [
+          {
+            "node": "아스날 뉴스 파싱",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "아스날 뉴스 파싱": {
+      "main": [
+        [
+          {
+            "node": "메시지 포맷팅",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "메시지 포맷팅": {
+      "main": [
+        [
+          {
+            "node": "카카오톡 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

@@ -1,0 +1,144 @@
+{
+  "name": "웹사이트 스크래핑 → 카카오톡 알림",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */15 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "15분마다 체크",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://news.naver.com/main/main.naver?mode=LSD&mid=shm&sid1=100",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "web-scraper",
+      "name": "네이버 뉴스 스크래핑",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// HTML에서 뉴스 제목과 링크 추출\nconst html = $input.first().json.data;\nconst cheerio = require('cheerio');\nconst $ = cheerio.load(html);\n\nconst newsItems = [];\n\n// 네이버 뉴스 구조에 맞게 선택자 수정\n$('.sh_item').each((index, element) => {\n  if (index < 5) { // 최신 5개만\n    const title = $(element).find('.sh_text a').text().trim();\n    const link = $(element).find('.sh_text a').attr('href');\n    \n    if (title && link) {\n      newsItems.push({\n        title: title,\n        link: link.startsWith('http') ? link : 'https://news.naver.com' + link,\n        timestamp: new Date().toISOString()\n      });\n    }\n  }\n});\n\nreturn newsItems;"
+      },
+      "id": "html-parser",
+      "name": "HTML 파싱",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 뉴스 아이템을 카카오톡 메시지로 변환\nconst items = $input.all();\nconst messages = [];\n\nfor (const item of items) {\n  const message = {\n    object_type: \"text\",\n    text: `📰 네이버 뉴스 알림\\n\\n📌 ${item.json.title}\\n\\n🔗 링크: ${item.json.link}\\n\\n⏰ ${new Date().toLocaleString('ko-KR')}`,\n    link: {\n      web_url: item.json.link\n    }\n  };\n  \n  messages.push({\n    template_object: JSON.stringify(message)\n  });\n}\n\nreturn messages;"
+      },
+      "id": "message-formatter",
+      "name": "메시지 포맷팅",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.KAKAO_ACCESS_TOKEN }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "template_object",
+              "value": "={{ $json.template_object }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "kakao-send",
+      "name": "카카오톡 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 200]
+    }
+  ],
+  "connections": {
+    "15분마다 체크": {
+      "main": [
+        [
+          {
+            "node": "네이버 뉴스 스크래핑",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "네이버 뉴스 스크래핑": {
+      "main": [
+        [
+          {
+            "node": "HTML 파싱",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML 파싱": {
+      "main": [
+        [
+          {
+            "node": "메시지 포맷팅",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "메시지 포맷팅": {
+      "main": [
+        [
+          {
+            "node": "카카오톡 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

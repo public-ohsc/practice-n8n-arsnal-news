@@ -1,0 +1,71 @@
+{
+  "name": "정기 카카오톡 알림 워크플로우",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "매일 오전 9시 (평일)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 현재 날짜와 시간 정보 가져오기\nconst now = new Date();\nconst dateStr = now.toLocaleDateString('ko-KR');\nconst timeStr = now.toLocaleTimeString('ko-KR');\n\n// 요일 정보\nconst weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];\nconst weekday = weekdays[now.getDay()];\n\n// 메시지 구성\nconst message = `📅 ${dateStr} ${weekday} ${timeStr}\n\n안녕하세요! 오늘도 좋은 하루 되세요! 🌟\n\n오늘의 할 일을 확인하고 시작해보세요.`;\n\nreturn {\n  message: message,\n  timestamp: now.toISOString()\n};"
+      },
+      "id": "message-generator",
+      "name": "메시지 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.message }}",
+        "channelId": "{{ $env.KAKAO_CHANNEL_ID }}",
+        "restApiKey": "{{ $env.KAKAO_REST_API_KEY }}"
+      },
+      "id": "kakao-send-message",
+      "name": "카카오톡 메시지 전송",
+      "type": "n8n-nodes-base.kakaotalk",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "매일 오전 9시 (평일)": {
+      "main": [
+        [
+          {
+            "node": "메시지 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "메시지 생성": {
+      "main": [
+        [
+          {
+            "node": "카카오톡 메시지 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

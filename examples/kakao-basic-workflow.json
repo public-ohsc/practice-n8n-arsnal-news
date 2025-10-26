@@ -1,0 +1,41 @@
+{
+  "name": "카카오톡 나에게 보내기 기본 워크플로우",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "message": "안녕하세요! n8n 자동화 시스템에서 보내는 테스트 메시지입니다. 🚀",
+        "channelId": "{{ $env.KAKAO_CHANNEL_ID }}",
+        "restApiKey": "{{ $env.KAKAO_REST_API_KEY }}"
+      },
+      "id": "kakao-send-message",
+      "name": "카카오톡 메시지 전송",
+      "type": "n8n-nodes-base.kakaotalk",
+      "typeVersion": 1,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "카카오톡 메시지 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

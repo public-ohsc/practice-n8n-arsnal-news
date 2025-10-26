@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: n8n_postgres
+    environment:
+      - POSTGRES_USER=n8n
+      - POSTGRES_PASSWORD=Qwer1234
+      - POSTGRES_DB=n8n
+    volumes:
+      - ~/.n8n/postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=Qwer1234
+      - N8N_HOST=localhost
+      - WEBHOOK_TUNNEL_URL=http://localhost:5678
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
+      - GENERIC_TIMEZONE=Asia/Seoul
+      # 카카오톡 API 설정
+      - KAKAO_REST_API_KEY=e73d3028568db3b0732ed889465295ba
+      - KAKAO_ACCESS_TOKEN=vojHzIQHtv3FdAUa1cQZCu_XM5aAuvyEAAAAAQoNIBsAAAGaH7kQEKbXH4eeWQ3B
+      - KAKAO_REFRESH_TOKEN=NGdIEp4yFOZtFBmlbIIJB6X_Vy416K0lAAAAAgoNIBsAAAGaH7kQDabXH4eeWQ3B
+      # PostgreSQL 데이터베이스 설정
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n
+      - DB_POSTGRESDB_PASSWORD=Qwer1234
+    volumes:
+      - ~/.n8n:/home/node/.n8n
+      - ./workflows:/home/node/.n8n/workflows
+      - ./credentials:/home/node/.n8n/credentials
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy

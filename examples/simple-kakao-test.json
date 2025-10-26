@@ -1,0 +1,65 @@
+{
+  "name": "간단한 카카오톡 테스트",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kapi.kakao.com/v2/api/talk/memo/default/send",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer iFg5eQCnAs6BFzDae65li_9cE7Ue8yMXAAAAAQoXEi0AAAGaH_UZOKbXH4eeWQ3B"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "template_object",
+              "value": "{\"object_type\":\"text\",\"text\":\"🎉 n8n에서 보내는 테스트 메시지입니다!\\n\\nSlack 연동 없이도 카카오톡 메시지 전송이 가능합니다! 🚀\"}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "kakao-send",
+      "name": "카카오톡 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "카카오톡 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}
